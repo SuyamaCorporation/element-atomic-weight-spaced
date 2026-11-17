@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>元素・原子量スペースドリビュー</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .fade-in{animation:fadeIn 0.2s ease forwards}
+  @keyframes cardPop{0%{transform:scale(0.95)}100%{transform:scale(1)}}
+  .card-pop{animation:cardPop 0.2s ease forwards}
+  .opt-btn{transition:background 0.12s,border-color 0.12s;}
+</style>
+</head>
+<body class="bg-zinc-900 text-white min-h-screen flex flex-col">
+
+<header class="bg-zinc-800 shadow px-4 py-3 flex items-center justify-between">
+  <h1 class="text-lg font-bold">⚗️ 元素周期表スペースドリビュー</h1>
+  <div class="flex gap-2 text-xs">
+    <span id="hdr-due" class="bg-blue-700 px-2 py-1 rounded">予定: 0</span>
+    <span id="hdr-mastered" class="bg-emerald-700 px-2 py-1 rounded">習得: 0</span>
+  </div>
+</header>
+
+<main class="flex-1 flex flex-col items-center px-4 py-6 gap-5 max-w-xl mx-auto w-full">
+
+  <!-- Group filter + quiz mode -->
+  <div class="w-full flex flex-wrap gap-2 justify-center">
+    <button class="grp-btn px-3 py-2 rounded text-xs font-semibold bg-sky-600" id="g-light" onclick="setGroup('light')" aria-label="軽元素グループ">軽元素 Z1–20</button>
+    <button class="grp-btn px-3 py-2 rounded text-xs font-semibold bg-zinc-700" id="g-trans" onclick="setGroup('trans')" aria-label="遷移金属グループ">遷移金属 Z21–56</button>
+    <button class="grp-btn px-3 py-2 rounded text-xs font-semibold bg-zinc-700" id="g-rare" onclick="setGroup('rare')" aria-label="希土類・重元素グループ">希土類 Z57–118</button>
+    <div class="flex rounded overflow-hidden border border-zinc-600">
+      <button id="qm-name" onclick="setQMode('name')" class="qm-btn px-3 py-1 text-xs bg-purple-600 text-white" aria-label="記号から名前モード">記号→名前</button>
+      <button id="qm-sym" onclick="setQMode('sym')" class="qm-btn px-3 py-1 text-xs bg-zinc-700 text-zinc-300" aria-label="名前から記号モード">名前→記号</button>
+    </div>
+    <button onclick="startReview()" class="px-3 py-2 rounded text-xs font-semibold bg-orange-500 hover:bg-orange-400 transition" aria-label="復習開始">▶ 復習</button>
+  </div>
+
+  <!-- Progress bar group -->
+  <div class="w-full flex gap-3 text-xs text-zinc-400">
+    <div class="flex-1">
+      <div class="flex justify-between mb-1"><span>軽元素</span><span id="pg-light">0%</span></div>
+      <div class="bg-zinc-700 rounded-full h-2"><div id="pb-light" class="bg-sky-500 h-2 rounded-full" style="width:0%"></div></div>
+    </div>
+    <div class="flex-1">
+      <div class="flex justify-between mb-1"><span>遷移金属</span><span id="pg-trans">0%</span></div>
+      <div class="bg-zinc-700 rounded-full h-2"><div id="pb-trans" class="bg-amber-500 h-2 rounded-full" style="width:0%"></div></div>
+    </div>
+    <div class="flex-1">
+      <div class="flex justify-between mb-1"><span>希土類</span><span id="pg-rare">0%</span></div>
+      <div class="bg-zinc-700 rounded-full h-2"><div id="pb-rare" class="bg-pink-500 h-2 rounded-full" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- Quiz card -->
+  <div id="quiz-card" class="card-pop fade-in w-full bg-gradient-to-br from-zinc-700 to-zinc-800 rounded-2xl shadow-xl p-6 text-center">
+    <div id="q-atomic" class="text-xs text-zinc-400 mb-1">Z -</div>
+    <div id="q-main" class="text-6xl font-bold mb-1 tracking-wide">-</div>
+    <div id="q-sub" class="text-sm text-zinc-300 mb-1">-</div>
+  </div>
+
+  <!-- Options -->
+  <div id="options-grid" class="w-full grid grid-cols-2 gap-3"></div>
+
+  <!-- Feedback -->
+  <div id="feedback-box" class="hidden w-full p-4 rounded-xl text-center font-bold" role="alert"></div>
+
+  <!-- Info card after correct -->
+  <div id="info-card" class="hidden w-full bg-zinc-800 rounded-2xl p-5 text-sm fade-in">
+    <div class="font-bold text-yellow-300 text-lg mb-2" id="ic-title"></div>
+    <div class="grid grid-cols-2 gap-2 text-zinc-300" id="ic-body"></div>
+  </div>
+
+</main>
+
+<script>
+// 118 elements: [Z, symbol, nameJa, weight, group(cat), period, config, year, use]
+const ELEMENTS = [
+[1,'H','水素',1.008,'light',1,'1s¹',1766,'燃料電池・水'],
+[2,'He','ヘリウム',4.003,'light',1,'1s²',1868,'気球・冷却剤'],
+[3,'Li','リチウム',6.941,'light',2,'[He]2s¹',1817,'電池・薬'],
+[4,'Be','ベリリウム',9.012,'light',2,'[He]2s²',1798,'合金・X線窓'],
+[5,'B','ホウ素',10.81,'light',2,'[He]2s²2p¹',1808,'ガラス・半導体'],
+[6,'C','炭素',12.011,'light',2,'[He]2s²2p²','古代','有機物全般'],
+[7,'N','窒素',14.007,'light',2,'[He]2s²2p³',1772,'肥料・空気主成分'],
+[8,'O','酸素',15.999,'light',2,'[He]2s²2p⁴',1774,'呼吸・燃焼'],
+[9,'F','フッ素',18.998,'light',2,'[He]2s²2p⁵',1886,'テフロン・歯磨き'],
+[10,'Ne','ネオン',20.18,'light',2,'[He]2s²2p⁶',1898,'ネオンサイン'],
+[11,'Na','ナトリウム',22.99,'light',3,'[Ne]3s¹',1807,'食塩・神経信号'],
+[12,'Mg','マグネシウム',24.305,'light',3,'[Ne]3s²',1755,'合金・花火'],
+[13,'Al','アルミニウム',26.982,'light',3,'[Ne]3s²3p¹',1827,'缶・建材'],
+[14,'Si','ケイ素',28.086,'light',3,'[Ne]3s²3p²',1824,'半導体・ガラス'],
+[15,'P','リン',30.974,'light',3,'[Ne]3s²3p³',1669,'肥料・マッチ'],
+[16,'S','硫黄',32.06,'light',3,'[Ne]3s²3p⁴','古代','硫酸・火薬'],
+[17,'Cl','塩素',35.45,'light',3,'[Ne]3s²3p⁵',1774,'消毒・塩化物'],
+[18,'Ar','アルゴン',39.948,'light',3,'[Ne]3s²3p⁶',1894,'溶接シールドガス'],
+[19,'K','カリウム',39.098,'light',4,'[Ar]4s¹',1807,'肥料・体内電解質'],
+[20,'Ca','カルシウム',40.078,'light',4,'[Ar]4s²',1808,'骨・セメント'],
+[21,'Sc','スカンジウム',44.956,'trans',4,'[Ar]3d¹4s²',1879,'航空機フレーム'],
+[22,'Ti','チタン',47.867,'trans',4,'[Ar]3d²4s²',1791,'航空・インプラント'],
+[23,'V','バナジウム',50.942,'trans',4,'[Ar]3d³4s²',1801,'鋼鉄合金'],
+[24,'Cr','クロム',51.996,'trans',4,'[Ar]3d⁵4s¹',1798,'ステンレス・めっき'],
+[25,'Mn','マンガン',54.938,'trans',4,'[Ar]3d⁵4s²',1774,'鉄鋼合金・電池'],
+[26,'Fe','鉄',55.845,'trans',4,'[Ar]3d⁶4s²','古代','建材・製造業'],
+[27,'Co','コバルト',58.933,'trans',4,'[Ar]3d⁷4s²',1735,'磁石・電池'],
+[28,'Ni','ニッケル',58.693,'trans',4,'[Ar]3d⁸4s²',1751,'合金・めっき'],
+[29,'Cu','銅',63.546,'trans',4,'[Ar]3d¹⁰4s¹','古代','電線・硬貨'],
+[30,'Zn','亜鉛',65.38,'trans',4,'[Ar]3d¹⁰4s²',1746,'めっき・電池'],
+[31,'Ga','ガリウム',69.723,'trans',4,'[Ar]3d¹⁰4s²4p¹',1875,'半導体LED'],
+[32,'Ge','ゲルマニウム',72.63,'trans',4,'[Ar]3d¹⁰4s²4p²',1886,'半導体・光ファイバ'],
+[33,'As','ヒ素',74.922,'trans',4,'[Ar]3d¹⁰4s²4p³','古代','半導体・農薬'],
+[34,'Se','セレン',78.971,'trans',4,'[Ar]3d¹⁰4s²4p⁴',1817,'ガラス・半導体'],
+[35,'Br','臭素',79.904,'trans',4,'[Ar]3d¹⁰4s²4p⁵',1826,'難燃剤・農薬'],
+[36,'Kr','クリプトン',83.798,'trans',4,'[Ar]3d¹⁰4s²4p⁶',1898,'蛍光灯・レーザー'],
+[37,'Rb','ルビジウム',85.468,'trans',5,'[Kr]5s¹',1861,'原子時計'],
+[38,'Sr','ストロンチウム',87.62,'trans',5,'[Kr]5s²',1790,'花火・MRI'],
+[39,'Y','イットリウム',88.906,'trans',5,'[Kr]4d¹5s²',1794,'蛍光体・LED'],
+[40,'Zr','ジルコニウム',91.224,'trans',5,'[Kr]4d²5s²',1789,'原子炉・宝石'],
+[41,'Nb','ニオブ',92.906,'trans',5,'[Kr]4d⁴5s¹',1801,'超伝導磁石'],
+[42,'Mo','モリブデン',95.95,'trans',5,'[Kr]4d⁵5s¹',1778,'耐熱合金'],
+[43,'Tc','テクネチウム',98,'trans',5,'[Kr]4d⁵5s²',1937,'医療診断'],
+[44,'Ru','ルテニウム',101.07,'trans',5,'[Kr]4d⁷5s¹',1844,'触媒・電気接点'],
+[45,'Rh','ロジウム',102.906,'trans',5,'[Kr]4d⁸5s¹',1803,'触媒コンバーター'],
+[46,'Pd','パラジウム',106.42,'trans',5,'[Kr]4d¹⁰',1803,'触媒・水素吸蔵'],
+[47,'Ag','銀',107.868,'trans',5,'[Kr]4d¹⁰5s¹','古代','電気接点・写真'],
+[48,'Cd','カドミウム',112.414,'trans',5,'[Kr]4d¹⁰5s²',1817,'電池・顔料'],
+[49,'In','インジウム',114.818,'trans',5,'[Kr]4d¹⁰5s²5p¹',1863,'LCD電極'],
+[50,'Sn','スズ',118.71,'trans',5,'[Kr]4d¹⁰5s²5p²','古代','はんだ・缶詰'],
+[51,'Sb','アンチモン',121.76,'trans',5,'[Kr]4d¹⁰5s²5p³','古代','難燃剤・半導体'],
+[52,'Te','テルル',127.6,'trans',5,'[Kr]4d¹⁰5s²5p⁴',1782,'太陽電池'],
+[53,'I','ヨウ素',126.904,'trans',5,'[Kr]4d¹⁰5s²5p⁵',1811,'消毒・甲状腺'],
+[54,'Xe','キセノン',131.293,'trans',5,'[Kr]4d¹⁰5s²5p⁶',1898,'閃光灯・麻酔'],
+[55,'Cs','セシウム',132.905,'trans',6,'[Xe]6s¹',1860,'原子時計'],
+[56,'Ba','バリウム',137.327,'trans',6,'[Xe]6s²',1808,'X線造影剤'],
+[57,'La','ランタン',138.905,'rare',6,'[Xe]5d¹6s²',1839,'カメラレンズ'],
+[58,'Ce','セリウム',140.116,'rare',6,'[Xe]4f¹5d¹6s²',1803,'触媒・研磨剤'],
+[59,'Pr','プラセオジム',140.908,'rare',6,'[Xe]4f³6s²',1885,'磁石・レンズ'],
+[60,'Nd','ネオジム',144.242,'rare',6,'[Xe]4f⁴6s²',1885,'超強力磁石'],
+[61,'Pm','プロメチウム',145,'rare',6,'[Xe]4f⁵6s²',1945,'放射性・研究用'],
+[62,'Sm','サマリウム',150.36,'rare',6,'[Xe]4f⁶6s²',1879,'磁石・原子炉'],
+[63,'Eu','ユウロピウム',151.964,'rare',6,'[Xe]4f⁷6s²',1901,'蛍光体・ユーロ紙幣'],
+[64,'Gd','ガドリニウム',157.25,'rare',6,'[Xe]4f⁷5d¹6s²',1886,'MRI造影剤'],
+[65,'Tb','テルビウム',158.925,'rare',6,'[Xe]4f⁹6s²',1843,'蛍光体・磁石'],
+[66,'Dy','ジスプロシウム',162.5,'rare',6,'[Xe]4f¹⁰6s²',1886,'磁石・レーザー'],
+[67,'Ho','ホルミウム',164.93,'rare',6,'[Xe]4f¹¹6s²',1878,'磁石・MRI'],
+[68,'Er','エルビウム',167.259,'rare',6,'[Xe]4f¹²6s²',1843,'光ファイバ増幅器'],
+[69,'Tm','ツリウム',168.934,'rare',6,'[Xe]4f¹³6s²',1879,'レーザー・X線源'],
+[70,'Yb','イッテルビウム',173.045,'rare',6,'[Xe]4f¹⁴6s²',1878,'原子時計・レーザー'],
+[71,'Lu','ルテチウム',174.967,'rare',6,'[Xe]4f¹⁴5d¹6s²',1907,'PETスキャン'],
+[72,'Hf','ハフニウム',178.49,'rare',6,'[Xe]4f¹⁴5d²6s²',1923,'原子炉制御棒'],
+[73,'Ta','タンタル',180.948,'rare',6,'[Xe]4f¹⁴5d³6s²',1802,'電子部品コンデンサ'],
+[74,'W','タングステン',183.84,'rare',6,'[Xe]4f¹⁴5d⁴6s²',1783,'電球フィラメント'],
+[75,'Re','レニウム',186.207,'rare',6,'[Xe]4f¹⁴5d⁵6s²',1925,'ジェットエンジン'],
+[76,'Os','オスミウム',190.23,'rare',6,'[Xe]4f¹⁴5d⁶6s²',1803,'万年筆ペン先'],
+[77,'Ir','イリジウム',192.217,'rare',6,'[Xe]4f¹⁴5d⁷6s²',1803,'火花プラグ'],
+[78,'Pt','白金',195.084,'rare',6,'[Xe]4f¹⁴5d⁹6s¹',1735,'触媒・宝飾品'],
+[79,'Au','金',196.967,'rare',6,'[Xe]4f¹⁴5d¹⁰6s¹','古代','貨幣・電子基板'],
+[80,'Hg','水銀',200.592,'rare',6,'[Xe]4f¹⁴5d¹⁰6s²','古代','温度計・蛍光灯'],
+[81,'Tl','タリウム',204.38,'rare',6,'[Xe]4f¹⁴5d¹⁰6s²6p¹',1861,'心臓診断・光学'],
+[82,'Pb','鉛',207.2,'rare',6,'[Xe]4f¹⁴5d¹⁰6s²6p²','古代','電池・放射線遮蔽'],
+[83,'Bi','ビスマス',208.98,'rare',6,'[Xe]4f¹⁴5d¹⁰6s²6p³',1753,'医薬品・はんだ'],
+[84,'Po','ポロニウム',209,'rare',6,'[Xe]4f¹⁴5d¹⁰6s²6p⁴',1898,'放射性・静電除去'],
+[85,'At','アスタチン',210,'rare',6,'[Xe]4f¹⁴5d¹⁰6s²6p⁵',1940,'がん治療研究'],
+[86,'Rn','ラドン',222,'rare',6,'[Xe]4f¹⁴5d¹⁰6s²6p⁶',1900,'建物内放射線源'],
+[87,'Fr','フランシウム',223,'rare',7,'[Rn]7s¹',1939,'研究用のみ'],
+[88,'Ra','ラジウム',226,'rare',7,'[Rn]7s²',1898,'放射線治療（歴史的）'],
+[89,'Ac','アクチニウム',227,'rare',7,'[Rn]6d¹7s²',1899,'放射線源'],
+[90,'Th','トリウム',232.038,'rare',7,'[Rn]6d²7s²',1828,'原子炉燃料研究'],
+[91,'Pa','プロトアクチニウム',231.036,'rare',7,'[Rn]5f²6d¹7s²',1913,'研究用'],
+[92,'U','ウラン',238.029,'rare',7,'[Rn]5f³6d¹7s²',1789,'核燃料'],
+[93,'Np','ネプツニウム',237,'rare',7,'[Rn]5f⁴6d¹7s²',1940,'中性子検出器'],
+[94,'Pu','プルトニウム',244,'rare',7,'[Rn]5f⁶7s²',1940,'核兵器・原子炉'],
+[95,'Am','アメリシウム',243,'rare',7,'[Rn]5f⁷7s²',1944,'煙感知器'],
+[96,'Cm','キュリウム',247,'rare',7,'[Rn]5f⁷6d¹7s²',1944,'放射性電源'],
+[97,'Bk','バークリウム',247,'rare',7,'[Rn]5f⁹7s²',1949,'研究用'],
+[98,'Cf','カリホルニウム',251,'rare',7,'[Rn]5f¹⁰7s²',1950,'核分裂研究'],
+[99,'Es','アインスタイニウム',252,'rare',7,'[Rn]5f¹¹7s²',1952,'研究用'],
+[100,'Fm','フェルミウム',257,'rare',7,'[Rn]5f¹²7s²',1952,'研究用'],
+[101,'Md','メンデレビウム',258,'rare',7,'[Rn]5f¹³7s²',1955,'研究用'],
+[102,'No','ノーベリウム',259,'rare',7,'[Rn]5f¹⁴7s²',1958,'研究用'],
+[103,'Lr','ローレンシウム',266,'rare',7,'[Rn]5f¹⁴7s²7p¹',1961,'研究用'],
+[104,'Rf','ラザホージウム',267,'rare',7,'[Rn]5f¹⁴6d²7s²',1964,'研究用'],
+[105,'Db','ドブニウム',268,'rare',7,'[Rn]5f¹⁴6d³7s²',1967,'研究用'],
+[106,'Sg','シーボーギウム',269,'rare',7,'[Rn]5f¹⁴6d⁴7s²',1974,'研究用'],
+[107,'Bh','ボーリウム',270,'rare',7,'[Rn]5f¹⁴6d⁵7s²',1981,'研究用'],
+[108,'Hs','ハッシウム',269,'rare',7,'[Rn]5f¹⁴6d⁶7s²',1984,'研究用'],
+[109,'Mt','マイトネリウム',278,'rare',7,'[Rn]5f¹⁴6d⁷7s²',1982,'研究用'],
+[110,'Ds','ダームスタチウム',281,'rare',7,'[Rn]5f¹⁴6d⁸7s²',1994,'研究用'],
+[111,'Rg','レントゲニウム',282,'rare',7,'[Rn]5f¹⁴6d¹⁰7s¹',1994,'研究用'],
+[112,'Cn','コペルニシウム',285,'rare',7,'[Rn]5f¹⁴6d¹⁰7s²',1996,'研究用'],
+[113,'Nh','ニホニウム',286,'rare',7,'[Rn]5f¹⁴6d¹⁰7s²7p¹',2004,'研究用（日本発見）'],
+[114,'Fl','フレロビウム',289,'rare',7,'[Rn]5f¹⁴6d¹⁰7s²7p²',1998,'研究用'],
+[115,'Mc','モスコビウム',290,'rare',7,'[Rn]5f¹⁴6d¹⁰7s²7p³',2003,'研究用'],
+[116,'Lv','リバモリウム',293,'rare',7,'[Rn]5f¹⁴6d¹⁰7s²7p⁴',2000,'研究用'],
+[117,'Ts','テネシン',294,'rare',7,'[Rn]5f¹⁴6d¹⁰7s²7p⁵',2010,'研究用'],
+[118,'Og','オガネソン',294,'rare',7,'[Rn]5f¹⁴6d¹⁰7s²7p⁶',2002,'研究用'],
+];
+
+const STORAGE='elem_sr_v1';
+let group='light', qmode='name';
+let progress={};
+let queue=[];
+let currentEl=null;
+let answered=false;
+
+function loadProgress(){progress=JSON.parse(localStorage.getItem(STORAGE)||'{}');}
+function saveProgress(){localStorage.setItem(STORAGE,JSON.stringify(progress));}
+function getP(z){if(!progress[z])progress[z]={correct:0,incorrect:0,interval:1,due:0};return progress[z];}
+
+function elByGroup(g){return ELEMENTS.filter(e=>e[4]===g);}
+function allFiltered(){return elByGroup(group);}
+
+function setGroup(g){
+  group=g;
+  ['light','trans','rare'].forEach(x=>{
+    document.getElementById('g-'+x).className='grp-btn px-3 py-2 rounded text-xs font-semibold '+(x===g?'bg-sky-600':'bg-zinc-700');
+  });
+  updateProgressBars();
+  startReview();
+}
+function setQMode(m){
+  qmode=m;
+  document.getElementById('qm-name').className='qm-btn px-3 py-1 text-xs '+(m==='name'?'bg-purple-600 text-white':'bg-zinc-700 text-zinc-300');
+  document.getElementById('qm-sym').className='qm-btn px-3 py-1 text-xs '+(m==='sym'?'bg-purple-600 text-white':'bg-zinc-700 text-zinc-300');
+}
+
+function masteredCount(g){
+  return elByGroup(g).filter(e=>{const p=getP(e[0]);return p.correct>=3&&p.correct>p.incorrect;}).length;
+}
+function updateProgressBars(){
+  ['light','trans','rare'].forEach(g=>{
+    const els=elByGroup(g);
+    const pct=els.length===0?0:Math.round((masteredCount(g)/els.length)*100);
+    document.getElementById('pb-'+g).style.width=pct+'%';
+    document.getElementById('pg-'+g).textContent=pct+'%';
+  });
+  const all=allFiltered();
+  const now=Date.now();
+  const due=all.filter(e=>getP(e[0]).due<=now).length;
+  const mastered=masteredCount(group);
+  document.getElementById('hdr-due').textContent='予定: '+due;
+  document.getElementById('hdr-mastered').textContent='習得: '+mastered;
+}
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function buildQueue(){
+  const els=allFiltered();
+  const now=Date.now();
+  const due=els.filter(e=>getP(e[0]).due<=now);
+  return shuffle([...due]);
+}
+
+function startReview(){
+  queue=buildQueue();
+  if(queue.length===0){
+    queue=shuffle([...allFiltered()]).slice(0,10);
+  }
+  nextCard();
+}
+
+function nextCard(){
+  answered=false;
+  document.getElementById('info-card').classList.add('hidden');
+  document.getElementById('feedback-box').classList.add('hidden');
+  if(queue.length===0){
+    queue=buildQueue();
+    if(queue.length===0){
+      document.getElementById('q-main').textContent='✅';
+      document.getElementById('q-sub').textContent='本日の復習完了！';
+      document.getElementById('q-atomic').textContent='';
+      document.getElementById('options-grid').innerHTML='';
+      return;
+    }
+  }
+  currentEl=queue.shift();
+  const [z,sym,nameJa,weight,grp,period,config,year,use]=currentEl;
+  document.getElementById('q-atomic').textContent=`Z${z} / 原子量 ${weight}`;
+  if(qmode==='name'){
+    document.getElementById('q-main').textContent=sym;
+    document.getElementById('q-sub').textContent='第'+period+'周期';
+  } else {
+    document.getElementById('q-main').textContent=nameJa;
+    document.getElementById('q-sub').textContent='第'+period+'周期';
+  }
+
+  // Build options
+  const pool=shuffle([...ELEMENTS]).filter(e=>e[0]!==z).slice(0,3);
+  const opts=shuffle([currentEl,...pool]);
+  const grid=document.getElementById('options-grid');
+  grid.innerHTML='';
+  opts.forEach(el=>{
+    const btn=document.createElement('button');
+    btn.className='opt-btn bg-zinc-700 hover:bg-zinc-600 rounded-xl p-3 text-sm font-semibold text-center border-2 border-transparent transition';
+    btn.setAttribute('aria-label','選択肢: '+(qmode==='name'?el[2]:el[1]));
+    btn.textContent=qmode==='name'?el[2]:el[1];
+    btn.onclick=()=>selectOpt(el[0]===z, btn, currentEl);
+    grid.appendChild(btn);
+  });
+}
+
+function selectOpt(isCorrect, btn, el){
+  if(answered)return;
+  answered=true;
+  const [z,sym,nameJa,weight,grp,period,config,year,use]=el;
+  const p=getP(z);
+  const fb=document.getElementById('feedback-box');
+  fb.classList.remove('hidden');
+  if(isCorrect){
+    p.correct++;
+    p.interval=Math.min(p.interval*2,30);
+    p.due=Date.now()+p.interval*24*3600*1000;
+    btn.className='opt-btn bg-emerald-700 rounded-xl p-3 text-sm font-semibold text-center border-2 border-emerald-400 transition';
+    fb.className='w-full p-3 rounded-xl text-center font-bold bg-emerald-800 text-emerald-200';
+    fb.textContent='⭕ 正解！';
+    showInfoCard(el);
+  } else {
+    p.incorrect++;
+    p.interval=1;
+    p.due=Date.now()+3600*1000;
+    btn.className='opt-btn bg-red-800 rounded-xl p-3 text-sm font-semibold text-center border-2 border-red-400 transition';
+    fb.className='w-full p-3 rounded-xl text-center font-bold bg-red-900 text-red-200';
+    fb.textContent='❌ 不正解。正解: '+(qmode==='name'?nameJa:sym);
+    // show correct
+    document.querySelectorAll('#options-grid button').forEach(b=>{
+      if(b.textContent===(qmode==='name'?nameJa:sym)){
+        b.className='opt-btn bg-emerald-800 rounded-xl p-3 text-sm font-semibold text-center border-2 border-emerald-400 transition';
+      }
+    });
+    showInfoCard(el);
+  }
+  saveProgress();
+  updateProgressBars();
+  setTimeout(nextCard,2000);
+}
+
+function showInfoCard(el){
+  const [z,sym,nameJa,weight,grp,period,config,year,use]=el;
+  const ic=document.getElementById('info-card');
+  ic.classList.remove('hidden');
+  document.getElementById('ic-title').textContent=`${sym} — ${nameJa} (Z=${z})`;
+  document.getElementById('ic-body').innerHTML=`
+    <div><span class="text-zinc-500">原子量</span><br/><span class="text-white font-mono">${weight /* xss-ok: 元素ハードコードデータの原子量 */}</span></div>
+    <div><span class="text-zinc-500">電子配置</span><br/><span class="text-white font-mono text-xs">${config /* xss-ok: 元素ハードコードデータの電子配置 */}</span></div>
+    <div><span class="text-zinc-500">発見年</span><br/><span class="text-white">${year /* xss-ok: 元素ハードコードデータの発見年 */}</span></div>
+    <div><span class="text-zinc-500">主な用途</span><br/><span class="text-white">${use /* xss-ok: 元素ハードコードデータの用途 */}</span></div>
+  `;
+}
+
+loadProgress();
+updateProgressBars();
+startReview();
+</script>
+</body>
+</html>
